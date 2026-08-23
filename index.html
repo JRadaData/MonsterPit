@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Monster Pit - Immersive Worlds</title>
+    <style>
+        :root {
+            --bg-dark: #0f172a; 
+            --card-bg: #1e293b;
+            --pit-glow: #f43f5e;
+            --accent-cyan: #38bdf8; 
+            --accent-green: #10b981; 
+            --text-light: #f8fafc; 
+            --text-dim: #94a3b8;
+        }
+
+        * { box-sizing: border-box; user-select: none; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark); color: var(--text-light);
+            margin: 0; padding: 15px; display: flex; flex-direction: column;
+            align-items: center; min-height: 100vh; touch-action: manipulation;
+            transition: background-color 0.8s ease; 
+        }
+
+        h1 {
+            font-size: 3rem; margin: 10px 0 5px; text-transform: uppercase; letter-spacing: 3px;
+            background: linear-gradient(135deg, var(--text-light), var(--accent-cyan));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 900;
+        }
+        .subtitle { color: var(--text-light); font-size: 1.1rem; margin-bottom: 15px; opacity: 0.8; }
+
+        .screen { display: none; width: 100%; max-width: 800px; animation: fadeIn 0.3s; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section-label { font-size: 1rem; color: var(--text-light); margin: 15px 0 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.9; }
+
+        /* SELECTION GRIDS */
+        .picker-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
+        
+        .select-card {
+            background: var(--card-bg); border: 2px solid rgba(255,255,255,0.1); border-radius: 16px;
+            padding: 10px 5px; text-align: center; cursor: pointer; transition: all 0.3s ease;
+        }
+        .select-card .emoji { font-size: 2.8rem; display: block; margin-bottom: 4px; }
+        .select-card .name { font-size: 0.85rem; color: var(--text-dim); font-weight: 700; transition: color 0.3s; }
+        .select-card:hover { border-color: rgba(255,255,255,0.3); }
+        .select-card.selected {
+            border-color: var(--pit-glow); background: rgba(255,255,255,0.15);
+            box-shadow: 0 0 20px var(--pit-glow); transform: translateY(-4px);
+        }
+        .select-card.selected .name { color: var(--text-light); }
+
+        .difficulty-options { display: flex; gap: 10px; margin-bottom: 25px; }
+        .diff-btn {
+            flex: 1; padding: 12px; background: var(--card-bg); border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 12px; color: var(--text-dim); font-weight: 800; cursor: pointer; font-size: 1rem; transition: all 0.3s;
+        }
+        .diff-btn.selected { border-color: var(--text-light); color: var(--bg-dark); background: var(--text-light); }
+
+        .action-btn {
+            width: 100%; padding: 18px; border: none; border-radius: 16px;
+            background: var(--pit-glow); color: white;
+            font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.4); transition: transform 0.1s, background 0.8s;
+        }
+        .action-btn:active { transform: scale(0.98); }
+
+        /* GAME STAGE */
+        .game-header { display: flex; justify-content: space-between; background: var(--card-bg); padding: 12px 20px; border-radius: 16px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
+        .badge { background: rgba(255,255,255,0.1); color: var(--text-light); padding: 8px 16px; border-radius: 12px; font-weight: 800; }
+
+        .stage-container {
+            background: var(--card-bg); border-radius: 24px; border: 1px solid rgba(255,255,255,0.1);
+            padding: 10px; margin-bottom: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,0.8); overflow: hidden; transition: background 0.8s;
+            position: relative;
+        }
+        svg { width: 100%; height: 320px; display: block; position: relative; z-index: 2; }
+
+        /* ATMOSPHERIC PARTICLE ANIMATIONS */
+        @keyframes floatParticle {
+            0% { transform: translateY(320px) scale(0.5); opacity: 0; }
+            50% { opacity: 0.8; }
+            100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+        }
+        .particle {
+            position: absolute; bottom: 0; font-size: 1.2rem; pointer-events: none;
+            animation: floatParticle 4s infinite linear; z-index: 1; opacity: 0;
+        }
+        .p1 { left: 15%; animation-delay: 0s; }
+        .p2 { left: 35%; animation-delay: 1.2s; }
+        .p3 { left: 60%; animation-delay: 0.5s; }
+        .p4 { left: 85%; animation-delay: 2.2s; }
+
+        /* --- GLOBAL ANIMATIONS --- */
+        @keyframes lavaPulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+        @keyframes monsterBreathe { 0%, 100% { transform: scale(1) translateY(0); } 50% { transform: scale(1.05) translateY(-3px); } }
+        @keyframes ropeSwing { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+        @keyframes chompUp { 0% { transform: translateY(0); } 30% { transform: translateY(-40px) scale(1.3); } 100% { transform: translateY(0); } }
+        @keyframes winBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-30px); } }
+
+        .anim-lava { animation: lavaPulse 2s infinite ease-in-out; }
+        .anim-monster-idle { animation: monsterBreathe 2.5s infinite ease-in-out; transform-origin: bottom center; }
+        .anim-swing { animation: ropeSwing 4s infinite ease-in-out; }
+        .anim-chomp { animation: chompUp 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .anim-win { animation: winBounce 0.5s ease-in-out infinite !important; }
+        #svg-swing-group { transform-origin: 0px 0px; } 
+
+        /* --- UNIQUE HERO ANIMATIONS --- */
+        @keyframes animNinja { 0%, 85% { transform: rotate(0deg); } 90% { transform: rotate(180deg); } 95% { transform: rotate(360deg); } 100% { transform: rotate(360deg); } }
+        @keyframes animWizard { 0%, 100% { transform: translateY(0) scale(1); filter: drop-shadow(0 0 1px #a855f7); } 50% { transform: translateY(-5px) scale(1.05); filter: drop-shadow(0 0 10px #a855f7); } }
+        @keyframes animDog { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+        @keyframes animCyborg { 0%, 95% { transform: translate(0,0) scale(1); } 96% { transform: translate(-3px, 2px) scale(1.05); } 98% { transform: translate(3px, -2px) scale(0.95); } 100% { transform: translate(0,0) scale(1); } }
+        @keyframes animAstro { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes animPrincess { 0%, 100% { transform: scaleX(1) translateY(0); } 50% { transform: scaleX(-1) translateY(-2px); } }
+        @keyframes animElf { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-3px); } }
+        @keyframes animHero { 0%, 100% { transform: skewX(-5deg); } 50% { transform: skewX(5deg); } }
+
+        .hero-ninja { animation: animNinja 4s infinite linear; }
+        .hero-wizard { animation: animWizard 2s infinite ease-in-out; }
+        .hero-dog { animation: animDog 0.6s infinite ease-in-out; }
+        .hero-cyborg { animation: animCyborg 3s infinite linear; }
+        .hero-astrocat { animation: animAstro 8s infinite linear; }
+        .hero-princess { animation: animPrincess 3s infinite steps(1); }
+        .hero-elf { animation: animElf 2s infinite ease-in-out; }
+        .hero-hero { animation: animHero 1.5s infinite ease-in-out; }
+
+        #hero-anim-wrapper { transform-origin: center center; transform-box: fill-box; }
+
+        /* KEYBOARD & SLOTS */
+        .word-container { display: flex; justify-content: center; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
+        .letter-slot { width: 45px; height: 60px; border-bottom: 5px solid var(--text-light); display: flex; align-items: center; justify-content: center; font-size: 2.2rem; font-weight: 900; }
+
+        .keyboard { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .key-btn { aspect-ratio: 1; background: var(--card-bg); border: 2px solid rgba(255,255,255,0.1); border-radius: 12px; color: var(--text-light); font-size: 1.4rem; font-weight: 800; cursor: pointer; transition: all 0.2s; }
+        .key-btn:hover:not(:disabled) { border-color: var(--text-light); background: rgba(255,255,255,0.1); }
+        .key-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+        .key-btn.correct { background: var(--accent-green) !important; border-color: var(--accent-green) !important; opacity: 1 !important; color: white; }
+        .key-btn.wrong { background: var(--bg-dark) !important; border-color: rgba(255,255,255,0.05) !important; color: rgba(255,255,255,0.2) !important; opacity: 1 !important; }
+
+        /* MODAL */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0, 0.85); backdrop-filter: blur(5px); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        .modal-card { background: var(--card-bg); border: 2px solid var(--pit-glow); border-radius: 30px; padding: 40px; text-align: center; max-width: 400px; width: 100%; box-shadow: 0 0 50px var(--pit-glow); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-title { font-size: 2.2rem; font-weight: 900; margin-bottom: 10px; }
+        .modal-desc { color: var(--text-dim); margin-bottom: 25px; font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+
+    <h1>Monster Pit</h1>
+    <div class="subtitle">Save your hero! (Sound ON 🔊)</div>
+
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen" class="screen active">
+        <div class="section-label">1. Choose Your Hero</div>
+        <div class="picker-grid" id="hero-grid"></div>
+
+        <div class="section-label">2. Choose Pit Monster</div>
+        <div class="picker-grid" id="monster-grid"></div>
+
+        <div class="section-label">3. Word Difficulty</div>
+        <div class="difficulty-options">
+            <button class="diff-btn" onclick="selectDiff(this, 'ALL')">MIXED</button>
+            <button class="diff-btn selected" onclick="selectDiff(this, 'EASY')">EASY</button>
+            <button class="diff-btn" onclick="selectDiff(this, 'MEDIUM')">MEDIUM</button>
+            <button class="diff-btn" onclick="selectDiff(this, 'HARD')">HARD</button>
+        </div>
+
+        <button class="action-btn" onclick="startGame()">ENTER THE PIT 🎮</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen">
+        <div class="game-header">
+            <span class="badge" id="diff-badge">LEVEL: EASY</span>
+            <span class="badge" id="mistake-badge" style="background: var(--pit-glow);">ROPE: 0/10</span>
+        </div>
+
+        <div class="stage-container" id="stage-box">
+            <div class="particle p1" id="part-1">🔥</div>
+            <div class="particle p2" id="part-2">🔥</div>
+            <div class="particle p3" id="part-3">🔥</div>
+            <div class="particle p4" id="part-4">🔥</div>
+
+            <svg viewBox="0 0 300 220" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                    <linearGradient id="pitGlowDef" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="var(--pit-glow)" stop-opacity="0.2"/>
+                        <stop offset="100%" stop-color="var(--pit-glow)" stop-opacity="0.9"/>
+                    </linearGradient>
+                </defs>
+
+                <!-- DYNAMIC WORLD BACKGROUND SCENERY (Injected via JS) -->
+                <g id="world-bg-scenery"></g>
+
+                <!-- Pit & Lava -->
+                <rect x="20" y="185" width="260" height="30" rx="8" fill="url(#pitGlowDef)" stroke="var(--pit-glow)" stroke-width="1.5" class="anim-lava"/>
+                
+                <!-- Monster Group -->
+                <g transform="translate(150, 208)">
+                    <text x="0" y="0" text-anchor="middle" font-size="32" id="svg-monster" class="anim-monster-idle">🐲</text>
+                </g>
+                <text x="70" y="205" text-anchor="middle" font-size="22" opacity="0.6">🔥</text>
+                <text x="230" y="205" text-anchor="middle" font-size="22" opacity="0.6">🔥</text>
+
+                <!-- Gallows -->
+                <path d="M 40 190 L 100 190 M 65 190 L 65 25 L 180 25 L 180 45" stroke="rgba(255,255,255,0.3)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <path d="M 65 60 L 100 25" stroke="rgba(255,255,255,0.1)" stroke-width="4" stroke-linecap="round"/>
+                <circle cx="180" cy="25" r="7" fill="rgba(255,255,255,0.4)"/>
+
+                <!-- Swinging Hero Assembly -->
+                <g transform="translate(180, 25)">
+                    <g id="svg-swing-group" class="anim-swing">
+                        <line id="svg-rope" x1="0" y1="0" x2="0" y2="30" stroke="#fbbf24" stroke-width="3" stroke-dasharray="4 2" style="transition: y2 0.4s ease;"/>
+                        
+                        <g id="svg-hero-group" transform="translate(0, 30)" style="transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
+                            <circle cx="0" cy="0" r="4" fill="#fbbf24"/>
+                            <g id="hero-anim-wrapper">
+                                <text x="0" y="24" text-anchor="middle" font-size="34" id="svg-hero">🥷</text>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </svg>
+        </div>
+
+        <div class="word-container" id="word-container"></div>
+        <div class="keyboard" id="keyboard"></div>
+    </div>
+
+    <!-- RESULT MODAL -->
+    <div class="modal-overlay" id="modal">
+        <div class="modal-card">
+            <div style="font-size: 5rem; margin-bottom: 10px;" id="modal-icon">🎉</div>
+            <div class="modal-title" id="modal-title">VICTORY!</div>
+            <div class="modal-desc" id="modal-desc">You rescued them safely!</div>
+            <button class="action-btn" onclick="closeModal()">PLAY AGAIN 🔄</button>
+        </div>
+    </div>
+
+    <script>
+        const HEROES = [
+            { e: '🥷', n: 'Ninja', anim: 'hero-ninja' },
+            { e: '🦸‍♂️', n: 'Hero', anim: 'hero-hero' },
+            { e: '🤖', n: 'Cyborg', anim: 'hero-cyborg' },
+            { e: '🐶', n: 'Cyberdog', anim: 'hero-dog' },
+            { e: '👸', n: 'Princess', anim: 'hero-princess' },
+            { e: '🧙‍♂️', n: 'Wizard', anim: 'hero-wizard' },
+            { e: '🧝‍♀️', n: 'Elf', anim: 'hero-elf' },
+            { e: '🐱', n: 'Astrocat', anim: 'hero-astrocat' }
+        ];
+
+        // Monster definitions with unique background artwork SVG strings!
+        const MONSTERS = [
+            { 
+                e: '🐲', n: 'Dragon', bgDark: '#1a0505', cardBg: '#3f0f0f', pitColor: '#ef4444', particle: '🔥',
+                worldBg: `<path d="M0 160 L 80 100 L 160 150 L 240 90 L 300 160 Z" fill="#7f1d1d" opacity="0.4"/>
+                          <circle cx="80" cy="100" r="4" fill="#fbbf24" opacity="0.6"/><circle cx="240" cy="90" r="4" fill="#fbbf24" opacity="0.6"/>`
+            }, 
+            { 
+                e: '👾', n: 'Slime', bgDark: '#051a05', cardBg: '#0f3f0f', pitColor: '#22c55e', particle: '🟢',
+                worldBg: `<path d="M0 30 Q 50 70 100 30 T 200 30 T 300 30 L 300 0 L 0 0 Z" fill="#14532d" opacity="0.6"/>
+                          <circle cx="50" cy="80" r="12" fill="#15803d" opacity="0.3"/><circle cx="220" cy="100" r="18" fill="#15803d" opacity="0.3"/>`
+            }, 
+            { 
+                e: '🦈', n: 'Shark', bgDark: '#020617', cardBg: '#0f172a', pitColor: '#3b82f6', particle: '💧',
+                worldBg: `<path d="M0 120 Q 75 140 150 120 T 300 120 L 300 190 L 0 190 Z" fill="#1e3a8a" opacity="0.3"/>
+                          <path d="M0 140 Q 75 160 150 140 T 300 140 L 300 190 L 0 190 Z" fill="#1d4ed8" opacity="0.3"/>`
+            }, 
+            { 
+                e: '🦁', n: 'Beast', bgDark: '#141103', cardBg: '#3d3005', pitColor: '#eab308', particle: '✨',
+                worldBg: `<rect x="40" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/><rect x="230" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/>
+                          <polygon points="55,60 40,80 70,80" fill="#a16207" opacity="0.4"/><polygon points="245,60 230,80 260,80" fill="#a16207" opacity="0.4"/>`
+            }, 
+            { 
+                e: '🐙', n: 'Kraken', bgDark: '#170524', cardBg: '#3b1259', pitColor: '#a855f7', particle: '🔮',
+                worldBg: `<circle cx="150" cy="110" r="60" fill="none" stroke="#581c87" stroke-width="4" opacity="0.4"/>
+                          <circle cx="150" cy="110" r="35" fill="none" stroke="#7e22ce" stroke-width="3" opacity="0.4"/>`
+            }, 
+            { 
+                e: '🦖', n: 'T-Rex', bgDark: '#1c1917', cardBg: '#44403c', pitColor: '#f97316', particle: '☄️',
+                worldBg: `<path d="M 20 190 Q 50 110 80 190 Z" fill="#292524"/><path d="M 220 190 Q 250 100 280 190 Z" fill="#292524"/>
+                          <line x1="0" y1="40" x2="100" y2="0" stroke="#f97316" stroke-width="2" opacity="0.5"/>`
+            }, 
+            { 
+                e: '🦂', n: 'Scorpion', bgDark: '#291c0a', cardBg: '#5c3d13', pitColor: '#f59e0b', particle: '⭐',
+                worldBg: `<path d="M0 150 Q 150 90 300 150 L 300 190 L 0 190 Z" fill="#78350f" opacity="0.4"/>
+                          <circle cx="250" cy="50" r="18" fill="#fef08a" opacity="0.2"/>`
+            }, 
+            { 
+                e: '🦇', n: 'Vampire', bgDark: '#000000', cardBg: '#1f1f1f', pitColor: '#e11d48', particle: '🦇',
+                worldBg: `<circle cx="220" cy="50" r="22" fill="#ffe4e6" opacity="0.3"/>
+                          <path d="M 0 190 L 0 130 Q 40 100 80 130 L 80 190 Z" fill="#111827" opacity="0.6"/>
+                          <path d="M 220 190 L 220 130 Q 260 100 300 130 L 300 190 Z" fill="#111827" opacity="0.6"/>`
+            } 
+        ];
+
+        const WORDS = [
+            { w: "LION", d: "EASY" }, { w: "MOON", d: "EASY" }, { w: "FROG", d: "EASY" }, { w: "DUCK", d: "EASY" },
+            { w: "STAR", d: "EASY" }, { w: "CAKE", d: "EASY" }, { w: "SHIP", d: "EASY" }, { w: "BIRD", d: "EASY" },
+            { w: "PLANET", d: "MEDIUM" }, { w: "ROBOT", d: "MEDIUM" }, { w: "TIGER", d: "MEDIUM" }, { w: "DRAGON", d: "MEDIUM" },
+            { w: "ROCKET", d: "MEDIUM" }, { w: "CASTLE", d: "MEDIUM" }, { w: "PIRATE", d: "MEDIUM" }, { w: "WIZARD", d: "MEDIUM" },
+            { w: "DINOSAUR", d: "HARD" }, { w: "ASTRONAUT", d: "HARD" }, { w: "SUBMARINE", d: "HARD" }, { w: "CHOCOLATE", d: "HARD" },
+            { w: "SUPERHERO", d: "HARD" }, { w: "VOLCANO", d: "HARD" }, { w: "UNICORN", d: "HARD" }
+        ];
+
+        let selectedHero = HEROES[0];
+        let selectedMonster = MONSTERS[0];
+        let selectedDiff = 'EASY';
+        let currentWord = "";
+        let guessedLetters = new Set();
+        let mistakes = 0;
+        let MAX_MISTAKES = 10; 
+        let audioCtx, heartbeatTimer;
+
+        window.onload = () => {
+            const hGrid = document.getElementById('hero-grid');
+            HEROES.forEach((h, i) => {
+                hGrid.innerHTML += `<div class="select-card ${i===0?'selected':''}" onclick="pickHero(this, ${i})">
+                    <span class="emoji">${h.e}</span><span class="name">${h.n}</span></div>`;
+            });
+            const mGrid = document.getElementById('monster-grid');
+            MONSTERS.forEach((m, i) => {
+                mGrid.innerHTML += `<div class="select-card ${i===0?'selected':''}" onclick="pickMonster(this, ${i})">
+                    <span class="emoji">${m.e}</span><span class="name">${m.n}</span></div>`;
+            });
+            applyWorldTheme(MONSTERS[0]); 
+        };
+
+        function pickHero(el, index) {
+            initAudio(); playTone(400, 'sine', 0.1);
+            document.querySelectorAll('#hero-grid .select-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedHero = HEROES[index];
+        }
+
+        function pickMonster(el, index) {
+            initAudio(); playTone(300, 'sawtooth', 0.15);
+            document.querySelectorAll('#monster-grid .select-card').forEach(c => c.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedMonster = MONSTERS[index];
+            applyWorldTheme(selectedMonster); 
+        }
+
+        function applyWorldTheme(monsterObj) {
+            const root = document.documentElement;
+            root.style.setProperty('--bg-dark', monsterObj.bgDark);
+            root.style.setProperty('--card-bg', monsterObj.cardBg);
+            root.style.setProperty('--pit-glow', monsterObj.pitColor);
+
+            // Inject custom SVG background scenery for this world!
+            document.getElementById('world-bg-scenery').innerHTML = monsterObj.worldBg;
+
+            ['part-1', 'part-2', 'part-3', 'part-4'].forEach(id => {
+                document.getElementById(id).textContent = monsterObj.particle;
+            });
+        }
+
+        function selectDiff(el, diff) {
+            initAudio(); playTone(500, 'sine', 0.1);
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+            el.classList.add('selected'); 
+            selectedDiff = diff;
+
+            if (diff === 'EASY') MAX_MISTAKES = 10;
+            else if (diff === 'MEDIUM') MAX_MISTAKES = 12;
+            else if (diff === 'HARD') MAX_MISTAKES = 14;
+            else MAX_MISTAKES = 12; 
+        }
+
+        function startGame() {
+            initAudio(); stopHeartbeat();
+            
+            const heroText = document.getElementById('svg-hero');
+            const heroAnimWrapper = document.getElementById('hero-anim-wrapper');
+            const heroGroup = document.getElementById('svg-hero-group');
+            const monster = document.getElementById('svg-monster');
+            
+            document.getElementById('svg-swing-group').classList.add('anim-swing');
+            document.getElementById('svg-rope').style.opacity = '1';
+            
+            heroAnimWrapper.setAttribute('class', selectedHero.anim); 
+            heroText.textContent = selectedHero.e;
+            
+            monster.classList.add('anim-monster-idle');
+            monster.classList.remove('anim-chomp');
+            monster.textContent = selectedMonster.e;
+
+            heroGroup.classList.remove('anim-win');
+            heroGroup.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            
+            let pool = selectedDiff === 'ALL' ? WORDS : WORDS.filter(item => item.d === selectedDiff);
+            currentWord = pool[Math.floor(Math.random() * pool.length)].w;
+            mistakes = 0; guessedLetters.clear();
+
+            document.getElementById('diff-badge').innerText = `LEVEL: ${selectedDiff}`;
+            updateStage(); renderSlots(); renderKeyboard();
+
+            document.getElementById('setup-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+        }
+
+        function updateStage() {
+            document.getElementById('mistake-badge').innerText = `ROPE: ${mistakes}/${MAX_MISTAKES}`;
+            const totalTravelDistance = 150; 
+            const dropPerMistake = totalTravelDistance / MAX_MISTAKES;
+            const currentY = 30 + (mistakes * dropPerMistake);
+
+            document.getElementById('svg-rope').setAttribute('y2', currentY);
+            document.getElementById('svg-hero-group').setAttribute('transform', `translate(0, ${currentY})`);
+        }
+
+        function renderSlots() {
+            const container = document.getElementById('word-container');
+            container.innerHTML = "";
+            for (let char of currentWord) {
+                container.innerHTML += `<div class="letter-slot">${guessedLetters.has(char) ? char : ""}</div>`;
+            }
+        }
+
+        function renderKeyboard() {
+            const kb = document.getElementById('keyboard');
+            kb.innerHTML = "";
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(letter => {
+                const btn = document.createElement('button');
+                btn.className = 'key-btn'; btn.textContent = letter;
+                btn.onclick = () => handleGuess(letter, btn);
+                kb.appendChild(btn);
+            });
+        }
+
+        function handleGuess(letter, btnEl) {
+            if (guessedLetters.has(letter) || mistakes >= MAX_MISTAKES) return;
+            guessedLetters.add(letter);
+
+            if (currentWord.includes(letter)) {
+                btnEl.classList.add('correct'); btnEl.disabled = true;
+                sfxCorrect(); renderSlots(); checkWin();
+            } else {
+                btnEl.classList.add('wrong'); btnEl.disabled = true;
+                mistakes++; sfxWrong(); updateStage();
+                updateHeartbeat(mistakes); checkLose();
+            }
+        }
+
+        function checkWin() {
+            if (currentWord.split('').every(char => guessedLetters.has(char))) {
+                document.getElementById('svg-hero-group').classList.add('anim-win');
+                sfxWin();
+                setTimeout(() => { showModal('🎉', 'SAVED!', `You rescued the ${selectedHero.n}!`); }, 1500);
+            }
+        }
+
+        function checkLose() {
+            if (mistakes >= MAX_MISTAKES) {
+                document.getElementById('svg-swing-group').classList.remove('anim-swing');
+                document.getElementById('svg-rope').style.opacity = '0'; 
+                
+                const heroGroup = document.getElementById('svg-hero-group');
+                heroGroup.style.transition = 'transform 0.6s cubic-bezier(0.55, 0.085, 0.68, 0.53)';
+                heroGroup.setAttribute('transform', 'translate(0, 180)'); 
+                
+                const monster = document.getElementById('svg-monster');
+                monster.classList.remove('anim-monster-idle');
+                monster.classList.add('anim-chomp');
+
+                sfxLose(); 
+                setTimeout(() => { showModal(selectedMonster.e, 'CHOMP!', `The word was "${currentWord}".`); }, 2000);
+            }
+        }
+
+        // --- AUDIO ENGINE ---
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        function sfxCorrect() { playTone(600, 'square', 0.1, 0.1); setTimeout(() => playTone(800, 'square', 0.2, 0.1), 100); }
+        function sfxWrong() { playTone(200, 'sawtooth', 0.3, 0.2); }
+        function sfxWin() {
+            stopHeartbeat();
+            [{f:261.6,t:0},{f:329.6,t:0.15},{f:392.0,t:0.3},{f:523.2,t:0.45},{f:392.0,t:0.85},{f:523.2,t:1.0}]
+            .forEach(n => setTimeout(() => playTone(n.f, 'square', 0.15, 0.15), n.t * 1000));
+        }
+        function sfxLose() {
+            stopHeartbeat();
+            [{f:329.6,t:0},{f:311.1,t:0.2},{f:293.6,t:0.4},{f:261.6,t:0.6},{f:196.0,t:1.0},{f:164.8,t:1.4}]
+            .forEach(n => setTimeout(() => playTone(n.f, 'sawtooth', 0.2, 0.25), n.t * 1000));
+        }
+        function updateHeartbeat(mc) {
+            stopHeartbeat(); if (mc === 0 || mc >= MAX_MISTAKES) return;
+            const speedFactor = 1200 / MAX_MISTAKES;
+            heartbeatTimer = setInterval(() => {
+                playTone(100+(mc*25), 'triangle', 0.2, 0.2);
+                setTimeout(() => playTone(80+(mc*25), 'triangle', 0.2, 0.2), 150);
+            }, Math.max(300, 1200 - (mc * speedFactor)));
+        }
+        function stopHeartbeat() { if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
+        // --- UI MODAL ---
+        function showModal(icon, title, desc) {
+            document.getElementById('modal-icon').textContent = icon;
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-desc').textContent = desc;
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function closeModal() {
+            initAudio(); playTone(400, 'sine', 0.1);
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('setup-screen').classList.add('active');
+        }
+    </script>
+</body>
+</html>
