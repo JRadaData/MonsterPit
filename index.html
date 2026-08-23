@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Monster Pit - Comedy Edition</title>
+    <title>Monster Pit - Comedy Edition (Bulletproof)</title>
     <style>
         :root {
             --bg-dark: #0f172a; 
@@ -84,20 +84,15 @@
 
         /* COMEDY SPEECH BUBBLES */
         .speech-bubble {
-            position: absolute;
-            background: white; color: #0f172a; padding: 10px 15px;
+            position: absolute; background: white; color: #0f172a; padding: 10px 15px;
             border-radius: 16px; font-size: 14px; font-weight: 900;
             box-shadow: 0 5px 15px rgba(0,0,0,0.5); pointer-events: none;
-            opacity: 0; transition: opacity 0.2s ease-in-out;
-            z-index: 10;
+            opacity: 0; transition: opacity 0.2s ease-in-out; z-index: 10;
         }
         .speech-bubble.show { opacity: 1; }
-        .speech-bubble::after {
-            content: ''; position: absolute; border-style: solid; border-width: 10px;
-        }
+        .speech-bubble::after { content: ''; position: absolute; border-style: solid; border-width: 10px; }
         .hero-bubble { top: 40px; right: 20%; }
         .hero-bubble::after { bottom: -20px; left: 20px; border-color: white transparent transparent transparent; }
-        
         .monster-bubble { bottom: 60px; left: 20%; }
         .monster-bubble::after { bottom: -20px; right: 20px; border-color: white transparent transparent transparent; }
 
@@ -216,15 +211,8 @@
                     </linearGradient>
                 </defs>
 
-                <!-- PRE-RENDERED SCENERY BACKGROUNDS -->
-                <g class="world-bg-group" id="bg-Dragon" display="none"><path d="M0 160 L 80 100 L 160 150 L 240 90 L 300 160 Z" fill="#7f1d1d" opacity="0.4"/></g>
-                <g class="world-bg-group" id="bg-Slime" display="none"><path d="M0 30 Q 50 70 100 30 T 200 30 T 300 30 L 300 0 L 0 0 Z" fill="#14532d" opacity="0.6"/></g>
-                <g class="world-bg-group" id="bg-Shark" display="none"><path d="M0 120 Q 75 140 150 120 T 300 120 L 300 190 L 0 190 Z" fill="#1e3a8a" opacity="0.3"/></g>
-                <g class="world-bg-group" id="bg-Beast" display="none"><rect x="40" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/><rect x="230" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/></g>
-                <g class="world-bg-group" id="bg-Kraken" display="none"><circle cx="150" cy="110" r="60" fill="none" stroke="#581c87" stroke-width="4" opacity="0.4"/></g>
-                <g class="world-bg-group" id="bg-T-Rex" display="none"><path d="M 20 190 Q 50 110 80 190 Z" fill="#292524"/><path d="M 220 190 Q 250 100 280 190 Z" fill="#292524"/></g>
-                <g class="world-bg-group" id="bg-Scorpion" display="none"><path d="M0 150 Q 150 90 300 150 L 300 190 L 0 190 Z" fill="#78350f" opacity="0.4"/></g>
-                <g class="world-bg-group" id="bg-Vampire" display="none"><circle cx="220" cy="50" r="22" fill="#ffe4e6" opacity="0.3"/></g>
+                <!-- DYNAMIC SCENERY -->
+                <g id="world-bg-scenery"></g>
 
                 <!-- Pit & Lava -->
                 <rect x="20" y="185" width="260" height="30" rx="8" fill="url(#pitGlowDef)" stroke="var(--pit-glow)" stroke-width="1.5" class="anim-lava"/>
@@ -275,7 +263,8 @@
     </div>
 
     <script>
-        const HEROES = [
+        // Use standard VARs to bypass strict mode / reload crashes in editors
+        var HEROES = [
             { e: '🥷', n: 'Ninja', anim: 'hero-ninja' },
             { e: '🦸‍♂️', n: 'Hero', anim: 'hero-hero' },
             { e: '🤖', n: 'Cyborg', anim: 'hero-cyborg' },
@@ -286,18 +275,42 @@
             { e: '🐱', n: 'Astrocat', anim: 'hero-astrocat' }
         ];
 
-        const MONSTERS = [
-            { e: '🐲', n: 'Dragon', quirk: 'Needs a mint!', bgDark: '#1a0505', cardBg: '#3f0f0f', pitColor: '#ef4444', particle: '🔥' }, 
-            { e: '👾', n: 'Slime', quirk: 'Hates letter Z', bgDark: '#051a05', cardBg: '#0f3f0f', pitColor: '#22c55e', particle: '🟢' }, 
-            { e: '🦈', n: 'Shark', quirk: 'Wears party hats', bgDark: '#020617', cardBg: '#0f172a', pitColor: '#3b82f6', particle: '💧' }, 
-            { e: '🦁', n: 'Beast', quirk: 'Ticklish paws', bgDark: '#141103', cardBg: '#3d3005', pitColor: '#eab308', particle: '✨' }, 
-            { e: '🐙', n: 'Kraken', quirk: 'Dances salsa', bgDark: '#170524', cardBg: '#3b1259', pitColor: '#a855f7', particle: '🔮' }, 
-            { e: '🦖', n: 'T-Rex', quirk: 'Short arms!', bgDark: '#1c1917', cardBg: '#44403c', pitColor: '#f97316', particle: '☄️' }, 
-            { e: '🦂', n: 'Scorpion', quirk: 'Loves disco', bgDark: '#291c0a', cardBg: '#5c3d13', pitColor: '#f59e0b', particle: '⭐' }, 
-            { e: '🦇', n: 'Vampire', quirk: 'Afraid of toast', bgDark: '#000000', cardBg: '#1f1f1f', pitColor: '#e11d48', particle: '🦇' } 
+        var MONSTERS = [
+            { 
+                e: '🐲', n: 'Dragon', quirk: 'Needs a mint!', bgDark: '#1a0505', cardBg: '#3f0f0f', pitColor: '#ef4444', particle: '🔥',
+                worldBg: '<path d="M0 160 L 80 100 L 160 150 L 240 90 L 300 160 Z" fill="#7f1d1d" opacity="0.4"/> <circle cx="80" cy="100" r="4" fill="#fbbf24" opacity="0.6"/><circle cx="240" cy="90" r="4" fill="#fbbf24" opacity="0.6"/>'
+            }, 
+            { 
+                e: '👾', n: 'Slime', quirk: 'Hates letter Z', bgDark: '#051a05', cardBg: '#0f3f0f', pitColor: '#22c55e', particle: '🟢',
+                worldBg: '<path d="M0 30 Q 50 70 100 30 T 200 30 T 300 30 L 300 0 L 0 0 Z" fill="#14532d" opacity="0.6"/> <circle cx="50" cy="80" r="12" fill="#15803d" opacity="0.3"/><circle cx="220" cy="100" r="18" fill="#15803d" opacity="0.3"/>'
+            }, 
+            { 
+                e: '🦈', n: 'Shark', quirk: 'Wears party hats', bgDark: '#020617', cardBg: '#0f172a', pitColor: '#3b82f6', particle: '💧',
+                worldBg: '<path d="M0 120 Q 75 140 150 120 T 300 120 L 300 190 L 0 190 Z" fill="#1e3a8a" opacity="0.3"/> <path d="M0 140 Q 75 160 150 140 T 300 140 L 300 190 L 0 190 Z" fill="#1d4ed8" opacity="0.3"/>'
+            }, 
+            { 
+                e: '🦁', n: 'Beast', quirk: 'Ticklish paws', bgDark: '#141103', cardBg: '#3d3005', pitColor: '#eab308', particle: '✨',
+                worldBg: '<rect x="40" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/><rect x="230" y="80" width="30" height="110" fill="#713f12" opacity="0.4"/> <polygon points="55,60 40,80 70,80" fill="#a16207" opacity="0.4"/><polygon points="245,60 230,80 260,80" fill="#a16207" opacity="0.4"/>'
+            }, 
+            { 
+                e: '🐙', n: 'Kraken', quirk: 'Dances salsa', bgDark: '#170524', cardBg: '#3b1259', pitColor: '#a855f7', particle: '🔮',
+                worldBg: '<circle cx="150" cy="110" r="60" fill="none" stroke="#581c87" stroke-width="4" opacity="0.4"/> <circle cx="150" cy="110" r="35" fill="none" stroke="#7e22ce" stroke-width="3" opacity="0.4"/>'
+            }, 
+            { 
+                e: '🦖', n: 'T-Rex', quirk: 'Short arms!', bgDark: '#1c1917', cardBg: '#44403c', pitColor: '#f97316', particle: '☄️',
+                worldBg: '<path d="M 20 190 Q 50 110 80 190 Z" fill="#292524"/><path d="M 220 190 Q 250 100 280 190 Z" fill="#292524"/> <line x1="0" y1="40" x2="100" y2="0" stroke="#f97316" stroke-width="2" opacity="0.5"/>'
+            }, 
+            { 
+                e: '🦂', n: 'Scorpion', quirk: 'Loves disco', bgDark: '#291c0a', cardBg: '#5c3d13', pitColor: '#f59e0b', particle: '⭐',
+                worldBg: '<path d="M0 150 Q 150 90 300 150 L 300 190 L 0 190 Z" fill="#78350f" opacity="0.4"/> <circle cx="250" cy="50" r="18" fill="#fef08a" opacity="0.2"/>'
+            }, 
+            { 
+                e: '🦇', n: 'Vampire', quirk: 'Afraid of toast', bgDark: '#000000', cardBg: '#1f1f1f', pitColor: '#e11d48', particle: '🦇',
+                worldBg: '<circle cx="220" cy="50" r="22" fill="#ffe4e6" opacity="0.3"/> <path d="M 0 190 L 0 130 Q 40 100 80 130 L 80 190 Z" fill="#111827" opacity="0.6"/> <path d="M 220 190 L 220 130 Q 260 100 300 130 L 300 190 Z" fill="#111827" opacity="0.6"/>'
+            } 
         ];
 
-        const WORDS = [
+        var WORDS = [
             { w: "LION", d: "EASY" }, { w: "MOON", d: "EASY" }, { w: "FROG", d: "EASY" }, { w: "DUCK", d: "EASY" },
             { w: "STAR", d: "EASY" }, { w: "CAKE", d: "EASY" }, { w: "SHIP", d: "EASY" }, { w: "BIRD", d: "EASY" },
             { w: "PLANET", d: "MEDIUM" }, { w: "ROBOT", d: "MEDIUM" }, { w: "TIGER", d: "MEDIUM" }, { w: "DRAGON", d: "MEDIUM" },
@@ -306,4 +319,290 @@
             { w: "SUPERHERO", d: "HARD" }, { w: "VOLCANO", d: "HARD" }, { w: "UNICORN", d: "HARD" }
         ];
 
-        const HERO_QUOTES = ["Watch the hair!", "I lef
+        var HERO_QUOTES = ["Watch the hair!", "I left my game on!", "Do I smell like tacos?", "Spell faster please!"];
+        var MONSTER_QUOTES = ["Mmm, tasty words!", "My tummy is rumbling!", "Are we done yet?", "Give me vowels!"];
+        var DECOY_ITEMS = ["🧦 a stinky gym sock!", "🦆 a squeaky rubber duck!", "🩲 polka-dot underwear!", "🍌 a slippery banana peel!"];
+
+        var selectedHero = HEROES[0];
+        var selectedMonster = MONSTERS[0];
+        var selectedDiff = 'EASY';
+        var currentWord = "";
+        var guessedLetters = new Set();
+        var mistakes = 0;
+        var MAX_MISTAKES = 10; 
+        var audioCtx = null;
+        var heartbeatTimer = null;
+
+        // BULLETPROOF INITIALIZATION (Triggers immediately on ready)
+        function initApp() {
+            if (window.appLoaded) return; // Prevent double loads
+            window.appLoaded = true;
+
+            var hGrid = document.getElementById('hero-grid');
+            hGrid.innerHTML = "";
+            for(var i=0; i < HEROES.length; i++) {
+                var cls = (i === 0) ? 'selected' : '';
+                hGrid.innerHTML += '<div class="select-card ' + cls + '" onclick="pickHero(this, ' + i + ')">' +
+                    '<span class="emoji">' + HEROES[i].e + '</span><span class="name">' + HEROES[i].n + '</span></div>';
+            }
+            
+            var mGrid = document.getElementById('monster-grid');
+            mGrid.innerHTML = "";
+            for(var j=0; j < MONSTERS.length; j++) {
+                var clsM = (j === 0) ? 'selected' : '';
+                mGrid.innerHTML += '<div class="select-card ' + clsM + '" onclick="pickMonster(this, ' + j + ')">' +
+                    '<span class="emoji">' + MONSTERS[j].e + '</span><span class="name">' + MONSTERS[j].n + '</span>' +
+                    '<span class="quirk">"' + MONSTERS[j].quirk + '"</span></div>';
+            }
+            
+            applyWorldTheme(MONSTERS[0]); 
+        }
+
+        // Fire safely regardless of browser timing
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+
+        function pickHero(el, index) {
+            initAudio(); playTone(400, 'sine', 0.1);
+            var cards = document.querySelectorAll('#hero-grid .select-card');
+            for(var i=0; i<cards.length; i++) cards[i].classList.remove('selected');
+            el.classList.add('selected');
+            selectedHero = HEROES[index];
+        }
+
+        function pickMonster(el, index) {
+            initAudio(); playTone(300, 'sawtooth', 0.15);
+            var cards = document.querySelectorAll('#monster-grid .select-card');
+            for(var i=0; i<cards.length; i++) cards[i].classList.remove('selected');
+            el.classList.add('selected');
+            selectedMonster = MONSTERS[index];
+            applyWorldTheme(selectedMonster); 
+        }
+
+        function applyWorldTheme(monsterObj) {
+            var root = document.documentElement;
+            root.style.setProperty('--bg-dark', monsterObj.bgDark);
+            root.style.setProperty('--card-bg', monsterObj.cardBg);
+            root.style.setProperty('--pit-glow', monsterObj.pitColor);
+
+            document.getElementById('world-bg-scenery').innerHTML = monsterObj.worldBg;
+            
+            var partIDs = ['part-1', 'part-2', 'part-3', 'part-4'];
+            for(var i=0; i<partIDs.length; i++) {
+                document.getElementById(partIDs[i]).textContent = monsterObj.particle;
+            }
+        }
+
+        function selectDiff(el, diff) {
+            initAudio(); playTone(500, 'sine', 0.1);
+            var btns = document.querySelectorAll('.diff-btn');
+            for(var i=0; i<btns.length; i++) btns[i].classList.remove('selected');
+            el.classList.add('selected'); 
+            selectedDiff = diff;
+
+            if (diff === 'EASY') MAX_MISTAKES = 10;
+            else if (diff === 'MEDIUM') MAX_MISTAKES = 12;
+            else if (diff === 'HARD') MAX_MISTAKES = 14;
+            else MAX_MISTAKES = 12; 
+        }
+
+        function startGame() {
+            initAudio(); stopHeartbeat();
+            
+            var heroText = document.getElementById('svg-hero');
+            var heroAnimWrapper = document.getElementById('hero-anim-wrapper');
+            var heroGroup = document.getElementById('svg-hero-group');
+            var monster = document.getElementById('svg-monster');
+            var pie = document.getElementById('flying-pie');
+            
+            document.getElementById('svg-swing-group').classList.add('anim-swing');
+            document.getElementById('svg-rope').style.opacity = '1';
+            
+            heroAnimWrapper.setAttribute('class', selectedHero.anim); 
+            heroText.textContent = selectedHero.e;
+            
+            monster.classList.add('anim-monster-idle');
+            monster.classList.remove('anim-chomp');
+            monster.textContent = selectedMonster.e;
+
+            heroGroup.classList.remove('anim-win');
+            heroGroup.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+            pie.setAttribute('class', '');
+            pie.style.opacity = '0';
+            
+            document.getElementById('hero-speech').classList.remove('show');
+            document.getElementById('monster-speech').classList.remove('show');
+            
+            var pool = [];
+            for(var i=0; i<WORDS.length; i++) {
+                if(selectedDiff === 'ALL' || WORDS[i].d === selectedDiff) pool.push(WORDS[i]);
+            }
+            currentWord = pool[Math.floor(Math.random() * pool.length)].w;
+            mistakes = 0; 
+            guessedLetters = new Set();
+
+            document.getElementById('diff-badge').innerText = 'LEVEL: ' + selectedDiff;
+            updateStage(); renderSlots(); renderKeyboard();
+
+            document.getElementById('setup-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+        }
+
+        function updateStage() {
+            document.getElementById('mistake-badge').innerText = 'ROPE: ' + mistakes + '/' + MAX_MISTAKES;
+            var totalTravelDistance = 150; 
+            var dropPerMistake = totalTravelDistance / MAX_MISTAKES;
+            var currentY = 30 + (mistakes * dropPerMistake);
+
+            document.getElementById('svg-rope').setAttribute('y2', currentY);
+            document.getElementById('svg-hero-group').setAttribute('transform', 'translate(0, ' + currentY + ')');
+        }
+
+        function triggerSpeechBubbles() {
+            var hBubble = document.getElementById('hero-speech');
+            var mBubble = document.getElementById('monster-speech');
+
+            hBubble.textContent = HERO_QUOTES[Math.floor(Math.random() * HERO_QUOTES.length)];
+            mBubble.textContent = MONSTER_QUOTES[Math.floor(Math.random() * MONSTER_QUOTES.length)];
+
+            hBubble.classList.add('show');
+            mBubble.classList.add('show');
+
+            setTimeout(function() {
+                hBubble.classList.remove('show');
+                mBubble.classList.remove('show');
+            }, 2500);
+        }
+
+        function renderSlots() {
+            var container = document.getElementById('word-container');
+            container.innerHTML = "";
+            for (var i=0; i<currentWord.length; i++) {
+                var char = currentWord[i];
+                container.innerHTML += '<div class="letter-slot">' + (guessedLetters.has(char) ? char : "") + '</div>';
+            }
+        }
+
+        function renderKeyboard() {
+            var kb = document.getElementById('keyboard');
+            kb.innerHTML = "";
+            var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+            for(var i=0; i<letters.length; i++) {
+                (function(letter) {
+                    var btn = document.createElement('button');
+                    btn.className = 'key-btn'; btn.textContent = letter;
+                    btn.onclick = function() { handleGuess(letter, btn); };
+                    kb.appendChild(btn);
+                })(letters[i]);
+            }
+        }
+
+        function handleGuess(letter, btnEl) {
+            if (guessedLetters.has(letter) || mistakes >= MAX_MISTAKES) return;
+            guessedLetters.add(letter);
+
+            if (currentWord.includes(letter)) {
+                btnEl.classList.add('correct'); btnEl.disabled = true;
+                sfxCorrect(); renderSlots(); checkWin();
+            } else {
+                btnEl.classList.add('wrong'); btnEl.disabled = true;
+                mistakes++; sfxWrong(); updateStage();
+                updateHeartbeat(mistakes); 
+                if(mistakes % 2 !== 0 && mistakes < MAX_MISTAKES) triggerSpeechBubbles(); 
+                checkLose();
+            }
+        }
+
+        function checkWin() {
+            var won = true;
+            for(var i=0; i<currentWord.length; i++) {
+                if(!guessedLetters.has(currentWord[i])) won = false;
+            }
+            if (won) {
+                document.getElementById('svg-hero-group').classList.add('anim-win');
+                var pie = document.getElementById('flying-pie');
+                pie.setAttribute('class', 'anim-pie');
+                
+                sfxWin();
+                setTimeout(function() { showModal('🥧', 'PIED!', 'You saved ' + selectedHero.n + ' and pied the ' + selectedMonster.n + '!'); }, 1500);
+            }
+        }
+
+        function checkLose() {
+            if (mistakes >= MAX_MISTAKES) {
+                document.getElementById('svg-swing-group').classList.remove('anim-swing');
+                document.getElementById('svg-rope').style.opacity = '0'; 
+                
+                var heroGroup = document.getElementById('svg-hero-group');
+                heroGroup.style.transition = 'transform 0.6s cubic-bezier(0.55, 0.085, 0.68, 0.53)';
+                heroGroup.setAttribute('transform', 'translate(0, 180)'); 
+                
+                var monster = document.getElementById('svg-monster');
+                monster.classList.remove('anim-monster-idle');
+                monster.classList.add('anim-chomp');
+
+                sfxLose(); 
+                var randomDecoy = DECOY_ITEMS[Math.floor(Math.random() * DECOY_ITEMS.length)];
+                setTimeout(function() { showModal('🤪', 'OOPS!', 'Chomp! Wait... the monster accidentally bit into ' + randomDecoy + ' The word was "' + currentWord + '".'); }, 2500);
+            }
+        }
+
+        // --- AUDIO ENGINE ---
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+        function playTone(freq, type, duration, vol) {
+            if (!audioCtx) return;
+            var volume = vol || 0.1;
+            var osc = audioCtx.createOscillator(); var gain = audioCtx.createGain();
+            osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+        function sfxCorrect() { playTone(600, 'square', 0.1, 0.1); setTimeout(function() { playTone(800, 'square', 0.2, 0.1); }, 100); }
+        function sfxWrong() { playTone(200, 'sawtooth', 0.3, 0.2); }
+        function sfxWin() {
+            stopHeartbeat();
+            var notes = [{f:261.6,t:0},{f:329.6,t:0.15},{f:392.0,t:0.3},{f:523.2,t:0.45},{f:392.0,t:0.85},{f:523.2,t:1.0}];
+            for(var i=0; i<notes.length; i++) {
+                (function(n) { setTimeout(function() { playTone(n.f, 'square', 0.15, 0.15); }, n.t * 1000); })(notes[i]);
+            }
+        }
+        function sfxLose() {
+            stopHeartbeat();
+            var notes = [{f:329.6,t:0},{f:311.1,t:0.2},{f:293.6,t:0.4},{f:261.6,t:0.6},{f:196.0,t:1.0},{f:164.8,t:1.4}];
+            for(var i=0; i<notes.length; i++) {
+                (function(n) { setTimeout(function() { playTone(n.f, 'sawtooth', 0.2, 0.25); }, n.t * 1000); })(notes[i]);
+            }
+        }
+        function updateHeartbeat(mc) {
+            stopHeartbeat(); if (mc === 0 || mc >= MAX_MISTAKES) return;
+            var speedFactor = 1200 / MAX_MISTAKES;
+            heartbeatTimer = setInterval(function() {
+                playTone(100+(mc*25), 'triangle', 0.2, 0.2);
+                setTimeout(function() { playTone(80+(mc*25), 'triangle', 0.2, 0.2); }, 150);
+            }, Math.max(300, 1200 - (mc * speedFactor)));
+        }
+        function stopHeartbeat() { if (heartbeatTimer) clearInterval(heartbeatTimer); heartbeatTimer = null; }
+
+        function showModal(icon, title, desc) {
+            document.getElementById('modal-icon').textContent = icon;
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-desc').textContent = desc;
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function closeModal() {
+            initAudio(); playTone(400, 'sine', 0.1);
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('setup-screen').classList.add('active');
+        }
+    </script>
+</body>
+</html>
